@@ -204,12 +204,12 @@ namespace WindowsService
                 try
                 {
                     int interval = ReadSerial(buf);
-                    int converted = 30000000 / 1024 * interval;
+                    int converted = 29296875 / interval; // 30000 / 1.024 * 1000 = 29296875
 
                     if (Environment.UserInteractive)
                     {
-                        Console.WriteLine("Interval ms: {0:X4} / Voltage: {1} / Converted to RPM: {2}", 
-                            interval, interval / 1024.0 * 5.0, converted/1000.0);
+                        Console.WriteLine("Interval: {0} ms (0x{0:X4}) / Converted to RPM: {1}", 
+                            interval, converted / 1000.0);
                     }
 
                     if (EnableRemote)
