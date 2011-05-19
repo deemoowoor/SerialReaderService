@@ -46,7 +46,7 @@ namespace WindowsService
             this.CanShutdown = true;
             this.CanStop = true;
 
-            _mainLoopThread = new Thread(MainLoop); 
+            _mainLoopThread = new Thread(MainLoop);
         }
 
         /// <summary>
@@ -58,6 +58,7 @@ namespace WindowsService
             var service = new SerialSpeedControllerWindowsService();
             if (Environment.UserInteractive)
             {
+                Console.WriteLine("Serial Wheel Speed Converter, Version 0.3");
                 service.OnStart(args);
                 Console.WriteLine("Enter any key to stop the program");
                 Console.Read();
@@ -191,8 +192,8 @@ namespace WindowsService
         }
 
         /// <summary>
-        /// MainLoop(): main loop to read values from 
-        /// the serial connection and writing them to the 
+        /// MainLoop(): main loop to read values from
+        /// the serial connection and writing them to the
         /// TCP connection.
         /// </summary>
         /// <param name="obj"></param>
@@ -204,21 +205,42 @@ namespace WindowsService
                 try
                 {
                     int interval = ReadSerial(buf);
-                    int converted = 29296875 / interval; // 30000 / 1.024 * 1000 = 29296875
-
-                    if (Environment.UserInteractive)
+                    
+                    if (interval == 0)
                     {
-                        Console.WriteLine("Interval: {0} ms (0x{0:X4}) / Converted to RPM: {1}", 
-                            interval, converted / 1000.0);
+                        InteractiveConsoleWrite("Interval is less than 1.024 ms! RPM > 29296.875");
+                        continue;
                     }
-
+                    
+                    int converted = 29296875 / interval; // 30000 / 1.024 * 1000 = 29296875
+                    
+                    InteractiveConsoleWrite(String.Format("Interval: {0} ms (0x{0:X4}) / Converted to RPM: {1}",
+                                                              interval, converted / 1000.0));
+                    
                     if (EnableRemote)
                     {
                         SendRemote((Int16)converted); // Truncate to 16 bits
                     }
                 }
-                catch (System.TimeoutException) 
+                catch (System.TimeoutException)
                 { }
+                catch (Exception e)
+                {
+                    if (Environment.UserInteractive)
+                    {
+                        Console.WriteLine(e.Message);
+                        Console.WriteLine(e.StackTrace);
+                        Thread.Sleep(5000); // give the user a chance to read the error message
+                        buf = new byte[2];
+                    }
+                }
+            }
+        }
+
+        void InteractiveConsoleWrite(string message)
+        {
+            if (Environment.UserInteractive) {
+                Console.WriteLine();
             }
         }
 
