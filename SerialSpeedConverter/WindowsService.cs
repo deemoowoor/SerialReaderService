@@ -240,7 +240,7 @@ namespace WindowsService
         void InteractiveConsoleWrite(string message)
         {
             if (Environment.UserInteractive) {
-                Console.WriteLine();
+                Console.WriteLine(message);
             }
         }
 
