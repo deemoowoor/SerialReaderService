@@ -10,14 +10,24 @@ using System.Configuration;
 using System.Net.Sockets;
 using System.IO;
 using System.Net;
+using log4net;
 
+[assembly: log4net.Config.XmlConfigurator(Watch=true)]
 namespace WindowsService
 {
     class SerialSpeedControllerWindowsService : ServiceBase
     {
 
-        protected bool EnableRemote { get { return bool.Parse(ConfigurationManager.AppSettings["EnableRemote"] ?? "true"); } }
+        protected bool EnableRemote 
+        { 
+        	get 
+        	{ 
+        		return bool.Parse(ConfigurationManager.AppSettings["EnableRemote"] ?? "true"); 
+        	} 
+        }
 
+       	private readonly ILog log = LogManager.GetLogger(typeof(SerialSpeedControllerWindowsService));
+        
         protected Thread _mainLoopThread;
         private bool _continue = true;
         private SerialPort _serialPort;
@@ -52,7 +62,6 @@ namespace WindowsService
         /// <summary>
         /// The Main Thread: This is where your Service is Run.
         /// </summary>
-
         static void Main(string[] args)
         {
             var service = new SerialSpeedControllerWindowsService();
@@ -68,17 +77,6 @@ namespace WindowsService
             {
                 ServiceBase.Run(service);
             }
-        }
-
-        /// <summary>
-        /// Dispose of objects that need it here.
-        /// </summary>
-        /// <param name="disposing">Whether
-        ///    or not disposing is going on.</param>
-
-        protected override void Dispose(bool disposing)
-        {
-            base.Dispose(disposing);
         }
 
         /// <summary>
@@ -116,82 +114,6 @@ namespace WindowsService
         }
 
         /// <summary>
-        /// OnPause: Put your pause code here
-        /// - Pause working threads, etc.
-        /// </summary>
-
-        protected override void OnPause()
-        {
-            base.OnPause();
-        }
-
-        /// <summary>
-        /// OnContinue(): Put your continue code here
-        /// - Un-pause working threads, etc.
-        /// </summary>
-
-        protected override void OnContinue()
-        {
-            base.OnContinue();
-        }
-
-        /// <summary>
-        /// OnShutdown(): Called when the System is shutting down
-        /// - Put code here when you need special handling
-        ///   of code that deals with a system shutdown, such
-        ///   as saving special data before shutdown.
-        /// </summary>
-
-        protected override void OnShutdown()
-        {
-            base.OnShutdown();
-        }
-
-        /// <summary>
-        /// OnCustomCommand(): If you need to send a command to your
-        ///   service without the need for Remoting or Sockets, use
-        ///   this method to do custom methods.
-        /// </summary>
-        /// <param name="command">Arbitrary Integer between 128 & 256</param>
-
-        protected override void OnCustomCommand(int command)
-        {
-            //  A custom command can be sent to a service by using this method:
-            //#  int command = 128; //Some Arbitrary number between 128 & 256
-            //#  ServiceController sc = new ServiceController("NameOfService");
-            //#  sc.ExecuteCommand(command);
-
-            base.OnCustomCommand(command);
-        }
-
-        /// <summary>
-        /// OnPowerEvent(): Useful for detecting power status changes,
-        ///   such as going into Suspend mode or Low Battery for laptops.
-        /// </summary>
-        /// <param name="powerStatus">The Power Broadcast Status
-        /// (BatteryLow, Suspend, etc.)</param>
-
-        protected override bool OnPowerEvent(PowerBroadcastStatus powerStatus)
-        {
-            return base.OnPowerEvent(powerStatus);
-        }
-
-        /// <summary>
-        /// OnSessionChange(): To handle a change event
-        ///   from a Terminal Server session.
-        ///   Useful if you need to determine
-        ///   when a user logs in remotely or logs off,
-        ///   or when someone logs into the console.
-        /// </summary>
-        /// <param name="changeDescription">The Session Change
-        /// Event that occured.</param>
-
-        protected override void OnSessionChange(SessionChangeDescription changeDescription)
-        {
-            base.OnSessionChange(changeDescription);
-        }
-
-        /// <summary>
         /// MainLoop(): main loop to read values from
         /// the serial connection and writing them to the
         /// TCP connection.
@@ -208,14 +130,14 @@ namespace WindowsService
                     
                     if (interval == 0)
                     {
-                        InteractiveConsoleWrite("Interval is less than 1.024 ms! RPM > 29296.875");
+                        log.Debug("Interval is less than 1.024 ms! RPM > 29296.875");
                         continue;
                     }
                     
                     int converted = 29296875 / interval; // 30000 / 1.024 * 1000 = 29296875
                     
-                    InteractiveConsoleWrite(String.Format("Interval: {0} ms (0x{0:X4}) / Converted to RPM: {1}",
-                                                              interval, converted / 1000.0));
+                    log.DebugFormat("Interval: {0} ms (0x{0:X4}) / Converted to RPM: {1}",
+                                                              interval, converted / 1000.0);
                     
                     if (EnableRemote)
                     {
@@ -226,21 +148,11 @@ namespace WindowsService
                 { }
                 catch (Exception e)
                 {
-                    if (Environment.UserInteractive)
-                    {
-                        Console.WriteLine(e.Message);
-                        Console.WriteLine(e.StackTrace);
-                        Thread.Sleep(5000); // give the user a chance to read the error message
-                        buf = new byte[2];
-                    }
+            		log.Error(e.Message);
+                    log.Error(e.StackTrace);
+                    Thread.Sleep(5000); // give the user a chance to read the error message
+                    buf = new byte[2];
                 }
-            }
-        }
-
-        void InteractiveConsoleWrite(string message)
-        {
-            if (Environment.UserInteractive) {
-                Console.WriteLine(message);
             }
         }
 
@@ -252,7 +164,7 @@ namespace WindowsService
             {
                 Thread.Sleep(100);
             }
-
+			
             _serialPort.Read(buf, 0, buf.Length);
             CombineType combine = (byte first, byte second) => (((int)first << 8) | second);
             return SerialEndianSwap ? combine(buf[1], buf[0]) : combine(buf[0], buf[1]);
@@ -337,12 +249,8 @@ namespace WindowsService
             }
             catch (SocketException e)
             {
-                if (Environment.UserInteractive)
-                {
-                    Console.WriteLine(e.Message);
-                    Console.WriteLine(e.StackTrace);
-                }
-
+                log.Debug(e.Message);
+                log.Debug(e.StackTrace);
                 throw;
             }
         }
