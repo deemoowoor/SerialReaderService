@@ -141,7 +141,7 @@ namespace WindowsService
                     
                     if (EnableRemote)
                     {
-                        SendRemote((Int16)converted); // Truncate to 16 bits
+                        SendRemote(converted);
                     }
                 }
                 catch (System.TimeoutException)
@@ -170,9 +170,9 @@ namespace WindowsService
             return SerialEndianSwap ? combine(buf[1], buf[0]) : combine(buf[0], buf[1]);
         }
         
-        private void SendRemote(short value)
+        private void SendRemote(int value)
         {
-            short converted = value;
+            int converted = value;
             
             if (BitConverter.IsLittleEndian)
             {
@@ -190,7 +190,7 @@ namespace WindowsService
 
             try
             {
-                stream.Write(buf, 0, 2);
+                stream.Write(buf, 0, 4);
             }
             catch (IOException)
             {
