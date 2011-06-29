@@ -141,7 +141,7 @@ namespace WindowsService
                     
                     if (EnableRemote)
                     {
-                        SendRemote(converted);
+                    	SendRemote(converted.ToString());
                     }
                 }
                 catch (System.TimeoutException)
@@ -156,18 +156,51 @@ namespace WindowsService
             }
         }
 
-        delegate int CombineType(byte f, byte s);
-
+        private int Combine(byte first, byte second)
+        {
+        	return ((int)first << 8) | second;
+        }
+        
         private int ReadSerial(byte[] buf)
         {
-            while (_serialPort.BytesToRead < 2)
+        	int past = 0;
+        	while (_serialPort.BytesToRead < 2)
             {
-                Thread.Sleep(100);
+        		if (_serialPort.BytesToRead == 1 && past > 2)
+        		{
+        			_serialPort.ReadByte();
+        		}
+        		
+                Thread.Sleep(10);
+                past++;
             }
 			
             _serialPort.Read(buf, 0, buf.Length);
-            CombineType combine = (byte first, byte second) => (((int)first << 8) | second);
-            return SerialEndianSwap ? combine(buf[1], buf[0]) : combine(buf[0], buf[1]);
+            
+            return SerialEndianSwap ? 
+            	Combine(buf[1], buf[0]) : 
+            	Combine(buf[0], buf[1]);
+        }
+        
+        private void SendRemote(string rpm)
+        {
+            if (_tcpclient == null)
+            {
+                ScheduleReconnect();
+                return;
+            }
+			
+            var buf = Encoding.ASCII.GetBytes(rpm);
+            var stream = _tcpclient.GetStream();
+
+            try
+            {
+                stream.Write(buf, 0, 4);
+            }
+            catch (IOException)
+            {
+                ScheduleReconnect();
+            }
         }
         
         private void SendRemote(int value)
