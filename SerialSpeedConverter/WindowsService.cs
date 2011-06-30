@@ -192,7 +192,7 @@ namespace WindowsService
 			
             var buf = Encoding.ASCII.GetBytes(rpm);
             var stream = _tcpclient.GetStream();
-
+            
             try
             {
                 stream.Write(buf, 0, buf.Length);
