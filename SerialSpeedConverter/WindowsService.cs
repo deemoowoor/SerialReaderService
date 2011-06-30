@@ -195,7 +195,7 @@ namespace WindowsService
 
             try
             {
-                stream.Write(buf, 0, 4);
+                stream.Write(buf, 0, buf.Length);
             }
             catch (IOException)
             {
