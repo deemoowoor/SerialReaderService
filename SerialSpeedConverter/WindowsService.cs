@@ -144,13 +144,18 @@ namespace WindowsService
                     	SendRemote(converted.ToString());
                     }
                 }
-                catch (System.TimeoutException)
+                catch (InvalidOperationException)
+		        {
+                	try {
+		        	OpenSerial();
+                	} catch {}
+		    	}
+		        catch (System.TimeoutException)
                 { }
                 catch (Exception e)
                 {
-            		log.Error(e.Message);
-                    log.Error(e.StackTrace);
-                    Thread.Sleep(5000); // give the user a chance to read the error message
+                	log.Error(e);
+            		Thread.Sleep(2000); // give the user a chance to read the error message
                     buf = new byte[2];
                 }
             }
@@ -174,9 +179,9 @@ namespace WindowsService
                 Thread.Sleep(10);
                 past++;
             }
-			
-            _serialPort.Read(buf, 0, buf.Length);
             
+        	_serialPort.Read(buf, 0, buf.Length);
+        	
             return SerialEndianSwap ? 
             	Combine(buf[1], buf[0]) : 
             	Combine(buf[0], buf[1]);
@@ -282,8 +287,7 @@ namespace WindowsService
             }
             catch (SocketException e)
             {
-                log.Debug(e.Message);
-                log.Debug(e.StackTrace);
+                log.Debug(e);
                 throw;
             }
         }
