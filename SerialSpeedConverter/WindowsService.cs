@@ -37,7 +37,6 @@ namespace WindowsService
         private Timer _timer;
 
         private TcpServer _server;
-        private Socket _remote;
        
         protected bool SerialEndianSwap;
 
