@@ -88,7 +88,6 @@ namespace WindowsService
         ///  - Start threads, get inital data, etc.
         /// </summary>
         /// <param name="args"></param>
-
         protected override void OnStart(string[] args)
         {
             base.OnStart(args);
@@ -102,7 +101,6 @@ namespace WindowsService
         /// OnStop(): Put your stop code here
         /// - Stop threads, set final data, etc.
         /// </summary>
-
         protected override void OnStop()
         {
             _continue = false;
@@ -194,11 +192,10 @@ namespace WindowsService
             }
 			
             var buf = Encoding.ASCII.GetBytes(rpm);
-            var socket = _server.Listener;
             
             try
             {
-                socket.Send(buf);
+                _server.Listener.Send(buf);
             }
             catch (IOException)
             {
