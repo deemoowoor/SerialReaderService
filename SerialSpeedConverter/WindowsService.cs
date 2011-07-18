@@ -11,6 +11,7 @@ using System.Net.Sockets;
 using System.IO;
 using System.Net;
 using log4net;
+using SerialSpeedConverter;
 
 [assembly: log4net.Config.XmlConfigurator(Watch=true)]
 namespace WindowsService
@@ -26,14 +27,26 @@ namespace WindowsService
         	} 
         }
 
+        protected int DelayMultiplier 
+        { 
+        	get 
+        	{ 
+        		int v = 1;
+        		int.TryParse(ConfigurationManager.AppSettings["DelayMultiplier"] ?? "1", out v); 
+        		return v;
+        	} 
+        }
+
        	private readonly ILog log = LogManager.GetLogger(typeof(SerialSpeedControllerWindowsService));
         
         protected Thread _mainLoopThread;
         private bool _continue = true;
         private SerialPort _serialPort;
-        private TcpClient _tcpclient;
         private Timer _timer;
 
+        private TcpServer _server;
+        private Socket _remote;
+       
         protected bool SerialEndianSwap;
 
         /// <summary>
@@ -92,9 +105,9 @@ namespace WindowsService
             
             if (EnableRemote)
             {
-                OpenRemote();
+                CreateRemote();
             }
-
+            
             OpenSerial();
             _mainLoopThread.Start();
         }
@@ -134,7 +147,7 @@ namespace WindowsService
                         continue;
                     }
                     
-                    int converted = 29296875 / interval; // 30000 / 1.024 * 1000 = 29296875
+                    int converted = 29296875 / interval * DelayMultiplier; // 30000 / 1.024 * 1000 = 29296875
                     
                     log.DebugFormat("Interval: {0} ms (0x{0:X4}) / Converted to RPM: {1}",
                                                               interval, converted / 1000.0);
@@ -146,9 +159,11 @@ namespace WindowsService
                 }
                 catch (InvalidOperationException)
 		        {
-                	try {
-		        	OpenSerial();
-                	} catch {}
+                	try 
+                	{
+                        OpenSerial();
+                	} 
+                	catch {}
 		    	}
 		        catch (System.TimeoutException)
                 { }
@@ -168,39 +183,39 @@ namespace WindowsService
         
         private int ReadSerial(byte[] buf)
         {
-        	int past = 0;
-        	while (_serialPort.BytesToRead < 2)
-            {
-        		if (_serialPort.BytesToRead == 1 && past > 2)
-        		{
-        			_serialPort.ReadByte();
-        		}
-        		
-                Thread.Sleep(10);
-                past++;
-            }
+			int past = 0;
+			while (_serialPort.BytesToRead < 2)
+			{
+				if (_serialPort.BytesToRead == 1 && past > 2)
+				{
+					_serialPort.ReadByte();
+				}
+				
+			    Thread.Sleep(10);
+			    past++;
+			}
             
-        	_serialPort.Read(buf, 0, buf.Length);
+			_serialPort.Read(buf, 0, buf.Length);
         	
-            return SerialEndianSwap ? 
+			return SerialEndianSwap ? 
             	Combine(buf[1], buf[0]) : 
             	Combine(buf[0], buf[1]);
         }
         
         private void SendRemote(string rpm)
         {
-            if (_tcpclient == null)
+            if (!_server.Listener.Connected)
             {
-                ScheduleReconnect();
+                //ScheduleReconnect();
                 return;
             }
 			
             var buf = Encoding.ASCII.GetBytes(rpm);
-            var stream = _tcpclient.GetStream();
+            var socket = _server.Listener;
             
             try
             {
-                stream.Write(buf, 0, buf.Length);
+                socket.Send(buf);
             }
             catch (IOException)
             {
@@ -208,27 +223,25 @@ namespace WindowsService
             }
         }
         
-        private void SendRemote(int value)
+        private void SendRemote(int rpm)
         {
-            int converted = value;
-            
-            if (BitConverter.IsLittleEndian)
+            if (!_server.Listener.Connected)
             {
-                converted = IPAddress.HostToNetworkOrder(value);
-            }
-
-            if (_tcpclient == null)
-            {
-                ScheduleReconnect();
                 return;
             }
 
+            int converted = rpm;
+            
+            if (BitConverter.IsLittleEndian)
+            {
+                converted = IPAddress.HostToNetworkOrder(rpm);
+            }
+
             var buf = BitConverter.GetBytes(converted);
-            var stream = _tcpclient.GetStream();
 
             try
             {
-                stream.Write(buf, 0, 4);
+                _server.Listener.Send(buf);
             }
             catch (IOException)
             {
@@ -238,7 +251,7 @@ namespace WindowsService
 
         private void ScheduleReconnect()
         {
-            _timer = new Timer(OpenRemote, null, 1000, System.Threading.Timeout.Infinite);
+            _timer = new Timer(CreateRemote, null, 1000, System.Threading.Timeout.Infinite);
         }
 
         private void OpenSerial()
@@ -269,34 +282,36 @@ namespace WindowsService
             }
         }
 
-        private void OpenRemote(object o)
+        private void CreateRemote(object o)
         {
-            OpenRemote();
+            CreateRemote();
         }
 
-        private void OpenRemote()
+        private void CreateRemote()
         {
-            CloseRemote();
-            string RemoteConnectionString = ConfigurationManager.AppSettings["RemoteTCPServer"];
-            var remote = RemoteConnectionString.Split(new char[] { ':' });
-            var hostname = remote[0];
-            var port = remote[1];
-            try
+            if (_server == null)
             {
-                _tcpclient = new TcpClient(hostname, int.Parse(port));
+                string RemoteConnectionString = ConfigurationManager.AppSettings["TCPServer"];
+                var remote = RemoteConnectionString.Split(new char[] { ':' });
+                var hostname = remote[0];
+                var port = remote[1];
+                
+                _server = new TcpServer(hostname, int.Parse(port));
+                //_server.Connected += OnRemoteConnected;
             }
-            catch (SocketException e)
+            else 
             {
-                log.Debug(e);
-                throw;
+                _server.StopListening();
             }
+            
+            _server.StartListening();
         }
 
         private void CloseRemote()
         {
-            if (_tcpclient != null && _tcpclient.Connected)
+            if (_server != null)
             {
-                _tcpclient.Close();
+                _server.StopListening();
             }
         }
 
