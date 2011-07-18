@@ -19,14 +19,6 @@ namespace WindowsService
     class SerialSpeedControllerWindowsService : ServiceBase
     {
 
-        protected bool EnableRemote 
-        { 
-        	get 
-        	{ 
-        		return bool.Parse(ConfigurationManager.AppSettings["EnableRemote"] ?? "true"); 
-        	} 
-        }
-
         protected int DelayMultiplier 
         { 
         	get 
@@ -102,13 +94,8 @@ namespace WindowsService
         {
             base.OnStart(args);
             // First, open serial connection, if fails, abort
-            
-            if (EnableRemote)
-            {
-                CreateRemote();
-            }
-            
             OpenSerial();
+            CreateRemote();
             _mainLoopThread.Start();
         }
 
@@ -152,10 +139,8 @@ namespace WindowsService
                     log.DebugFormat("Interval: {0} ms (0x{0:X4}) / Converted to RPM: {1}",
                                                               interval, converted / 1000.0);
                     
-                    if (EnableRemote)
-                    {
-                    	SendRemote(converted.ToString());
-                    }
+                    SendRemote(converted.ToString());
+                    
                 }
                 catch (InvalidOperationException)
 		        {
@@ -206,7 +191,6 @@ namespace WindowsService
         {
             if (!_server.Listener.Connected)
             {
-                //ScheduleReconnect();
                 return;
             }
 			
