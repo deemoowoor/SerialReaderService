@@ -2,8 +2,7 @@ Serial Reader Service
 =================================
 
 A simple C# .NET Windows Service that reads values from a
-serial device and forwards them to a TCP server or 
-(TODO) any TCP clients connecting to it.
+serial device and forwards them any TCP clients connecting to it.
 
 Released under the GNU General Public License, Version 3
 
