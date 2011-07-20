@@ -67,7 +67,7 @@ namespace WindowsService
             var service = new SerialSpeedControllerWindowsService();
             if (Environment.UserInteractive)
             {
-                Console.WriteLine("Serial Wheel Speed Converter, Version 0.4");
+                Console.WriteLine("Serial Wheel Speed Proxy, Version 0.6");
                 service.OnStart(args);
                 Console.WriteLine("Enter any key to stop the program");
                 Console.Read();
