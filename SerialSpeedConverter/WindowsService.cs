@@ -121,27 +121,17 @@ namespace WindowsService
         /// <param name="obj"></param>
         public void MainLoop()
         {
-            byte[] buf = new byte[2];
             while (_continue)
             {
                 try
                 {
-                    int interval = ReadSerial(buf);
+                    var line = _serialPort.ReadLine();
                     
-                    if (interval == 0)
-                    {
-                        log.Debug("Interval is less than 1.024 ms! RPM > 29296.875");
-                        continue;
-                    }
-                    
-                    int converted = 29296875 / interval; // 30000 / 1.024 * 1000 = 29296875
-                    
-                    log.DebugFormat("Interval: {0} ms (0x{0:X4}) / Converted to RPM: {1}",
-                                                              interval, converted / 1000.0);
+                    log.DebugFormat("RECV: {0}", line);
                     
                     if (EnableRemote)
                     {
-                    	SendRemote(converted.ToString());
+                    	SendRemote(line);
                     }
                 }
                 catch (InvalidOperationException)
@@ -156,37 +146,10 @@ namespace WindowsService
                 {
                 	log.Error(e);
             		Thread.Sleep(2000); // give the user a chance to read the error message
-                    buf = new byte[2];
                 }
             }
         }
 
-        private int Combine(byte first, byte second)
-        {
-        	return ((int)first << 8) | second;
-        }
-        
-        private int ReadSerial(byte[] buf)
-        {
-        	int past = 0;
-        	while (_serialPort.BytesToRead < 2)
-            {
-        		if (_serialPort.BytesToRead == 1 && past > 2)
-        		{
-        			_serialPort.ReadByte();
-        		}
-        		
-                Thread.Sleep(10);
-                past++;
-            }
-            
-        	_serialPort.Read(buf, 0, buf.Length);
-        	
-            return SerialEndianSwap ? 
-            	Combine(buf[1], buf[0]) : 
-            	Combine(buf[0], buf[1]);
-        }
-        
         private void SendRemote(string rpm)
         {
             if (_tcpclient == null)
