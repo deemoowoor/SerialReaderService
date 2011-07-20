@@ -28,7 +28,7 @@ namespace WindowsService
         		return v;
         	} 
         }
-
+		
        	private readonly ILog log = LogManager.GetLogger(typeof(SerialSpeedControllerWindowsService));
         
         protected Thread _mainLoopThread;
@@ -118,25 +118,21 @@ namespace WindowsService
         /// <param name="obj"></param>
         public void MainLoop()
         {
-            byte[] buf = new byte[2];
             while (_continue)
             {
                 try
                 {
-                    int interval = ReadSerial(buf);
+                    uint rpm = ReadSerialTextLine();
                     
-                    if (interval == 0)
-                    {
-                        log.Debug("Interval is less than 1.024 ms! RPM > 29296.875");
+                    log.DebugFormat("RPM: {0}", rpm / 1000.0);
+                    
+                    if (rpm > 29296875)
+                    {	
+                        log.Warn("RPM > 29296.875");
                         continue;
                     }
                     
-                    int converted = 29296875 / interval * DelayMultiplier; // 30000 / 1.024 * 1000 = 29296875
-                    
-                    log.DebugFormat("Interval: {0} ms (0x{0:X4}) / Converted to RPM: {1}",
-                                                              interval, converted / 1000.0);
-                    
-                    SendRemote(converted.ToString());
+                    SendRemote(rpm.ToString());
                     
                 }
                 catch (InvalidOperationException)
@@ -153,7 +149,6 @@ namespace WindowsService
                 {
                 	log.Error(e);
             		Thread.Sleep(2000); // give the user a chance to read the error message
-                    buf = new byte[2];
                 }
             }
         }
@@ -163,12 +158,23 @@ namespace WindowsService
         	return ((int)first << 8) | second;
         }
         
-        private int ReadSerial(byte[] buf)
+        private int Combine(byte[] bytes)
         {
-			int past = 0;
-			while (_serialPort.BytesToRead < 2)
+        	return BitConverter.ToInt32(bytes, 0);
+        }
+        
+        private uint ReadSerialTextLine()
+        {
+			return uint.Parse(_serialPort.ReadLine());
+        }
+        
+        private uint ReadSerial(byte[] buf)
+        {
+			uint past = 0;
+			
+			while (_serialPort.BytesToRead < buf.Length)
 			{
-				if (_serialPort.BytesToRead == 1 && past > 2)
+				if (_serialPort.BytesToRead == 1 && past > 3)
 				{
 					_serialPort.ReadByte();
 				}
@@ -180,8 +186,8 @@ namespace WindowsService
 			_serialPort.Read(buf, 0, buf.Length);
         	
 			return SerialEndianSwap ? 
-            	Combine(buf[1], buf[0]) : 
-            	Combine(buf[0], buf[1]);
+				(uint)IPAddress.HostToNetworkOrder(Combine(buf)) :
+				(uint)Combine(buf);
         }
         
         private void SendRemote(string rpm)
