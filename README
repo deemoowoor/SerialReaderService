@@ -6,4 +6,8 @@ serial device and forwards them any TCP clients connecting to it.
 
 Released under the GNU General Public License, Version 3
 
+TCP Server code based on code by Marc Clifton from 
+http://www.codeproject.com/KB/IP/SimplestTcpServer.aspx
+released under The Code Project Open License (CPOL).
+
 (c) 2011 Andrei Sosnin
