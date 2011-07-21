@@ -21,15 +21,15 @@ namespace WindowsService
 
         protected int DelayMultiplier 
         { 
-        	get 
-        	{ 
-        		int v = 1;
-        		int.TryParse(ConfigurationManager.AppSettings["DelayMultiplier"] ?? "1", out v); 
-        		return v;
-        	} 
+            get 
+            { 
+                int v = 1;
+                int.TryParse(ConfigurationManager.AppSettings["DelayMultiplier"] ?? "1", out v); 
+                return v;
+            } 
         }
-		
-       	private readonly ILog log = LogManager.GetLogger(typeof(SerialSpeedControllerWindowsService));
+        
+           private readonly ILog log = LogManager.GetLogger(typeof(SerialSpeedControllerWindowsService));
         
         protected Thread _mainLoopThread;
         private bool _continue = true;
@@ -131,19 +131,19 @@ namespace WindowsService
                     
                 }
                 catch (InvalidOperationException)
-		        {
-                	try 
-                	{
+                {
+                    try 
+                    {
                         OpenSerial();
-                	} 
-                	catch {}
-		    	}
-		        catch (System.TimeoutException)
+                    } 
+                    catch {}
+                }
+                catch (System.TimeoutException)
                 { }
                 catch (Exception e)
                 {
-                	log.Error(e);
-            		Thread.Sleep(2000); // give the user a chance to read the error message
+                    log.Error(e);
+                    Thread.Sleep(2000); // give the user a chance to read the error message
                 }
             }
         }
@@ -154,7 +154,7 @@ namespace WindowsService
             {
                 return;
             }
-			
+            
             var buf = Encoding.ASCII.GetBytes(rpm);
             
             try
@@ -227,8 +227,8 @@ namespace WindowsService
 
         private void OnRemoteConnected(object sender, TcpServerEventArgs e)
         {
-        	_client = e.ConnectionState.Connection;
-        	log.DebugFormat("Client from {0} connected.", _client.RemoteEndPoint.ToString());
+            _client = e.ConnectionState.Connection;
+            log.DebugFormat("Client from {0} connected.", _client.RemoteEndPoint.ToString());
         }
         
         private void CloseRemote()
