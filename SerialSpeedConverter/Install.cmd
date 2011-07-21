@@ -6,7 +6,7 @@ set PATH=%PATH%;%DOTNETFX4%
 
 echo Installing SerialSpeedConverter...
 echo ---------------------------------------------------
-cs create "SerialSpeedConverter" binPath="C:\services\SerialSpeedConverter\SerialSpeedConverter.exe" type= own start= auto
+sc create "SerialSpeedConverter" binPath= "I:\home\SerialSpeedConverter\SerialSpeedConverter\bin\Debug\SerialSpeedConverter.exe" type= own start= auto
 sc start "SerialSpeedConverter"
 echo ---------------------------------------------------
 echo Done.

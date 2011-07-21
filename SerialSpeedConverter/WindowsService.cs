@@ -37,6 +37,7 @@ namespace WindowsService
         private Timer _timer;
 
         private TcpServer _server;
+        private Socket _client;
        
         protected bool SerialEndianSwap;
 
@@ -71,7 +72,7 @@ namespace WindowsService
             var service = new SerialSpeedControllerWindowsService();
             if (Environment.UserInteractive)
             {
-                Console.WriteLine("Serial Wheel Speed Converter, Version 0.4");
+                Console.WriteLine("Serial TCP Server, Version 0.7");
                 service.OnStart(args);
                 Console.WriteLine("Enter any key to stop the program");
                 Console.Read();
@@ -122,17 +123,11 @@ namespace WindowsService
             {
                 try
                 {
-                    uint rpm = ReadSerialTextLine();
+                    string rpm = _serialPort.ReadLine();
                     
-                    log.DebugFormat("RPM: {0}", rpm / 1000.0);
+                    log.DebugFormat("RPM: {0}", int.Parse(rpm) / 1000.0);
                     
-                    if (rpm > 29296875)
-                    {	
-                        log.Warn("RPM > 29296.875");
-                        continue;
-                    }
-                    
-                    SendRemote(rpm.ToString());
+                    SendRemote(rpm);
                     
                 }
                 catch (InvalidOperationException)
@@ -152,47 +147,10 @@ namespace WindowsService
                 }
             }
         }
-
-        private int Combine(byte first, byte second)
-        {
-        	return ((int)first << 8) | second;
-        }
-        
-        private int Combine(byte[] bytes)
-        {
-        	return BitConverter.ToInt32(bytes, 0);
-        }
-        
-        private uint ReadSerialTextLine()
-        {
-			return uint.Parse(_serialPort.ReadLine());
-        }
-        
-        private uint ReadSerial(byte[] buf)
-        {
-			uint past = 0;
-			
-			while (_serialPort.BytesToRead < buf.Length)
-			{
-				if (_serialPort.BytesToRead == 1 && past > 3)
-				{
-					_serialPort.ReadByte();
-				}
-				
-			    Thread.Sleep(10);
-			    past++;
-			}
-            
-			_serialPort.Read(buf, 0, buf.Length);
-        	
-			return SerialEndianSwap ? 
-				(uint)IPAddress.HostToNetworkOrder(Combine(buf)) :
-				(uint)Combine(buf);
-        }
         
         private void SendRemote(string rpm)
         {
-            if (!_server.Listener.Connected)
+            if (_client == null || !_client.Connected)
             {
                 return;
             }
@@ -201,7 +159,7 @@ namespace WindowsService
             
             try
             {
-                _server.Listener.Send(buf);
+                _client.Send(buf);
             }
             catch (IOException)
             {
@@ -209,32 +167,6 @@ namespace WindowsService
             }
         }
         
-        private void SendRemote(int rpm)
-        {
-            if (!_server.Listener.Connected)
-            {
-                return;
-            }
-
-            int converted = rpm;
-            
-            if (BitConverter.IsLittleEndian)
-            {
-                converted = IPAddress.HostToNetworkOrder(rpm);
-            }
-
-            var buf = BitConverter.GetBytes(converted);
-
-            try
-            {
-                _server.Listener.Send(buf);
-            }
-            catch (IOException)
-            {
-                ScheduleReconnect();
-            }
-        }
-
         private void ScheduleReconnect()
         {
             _timer = new Timer(CreateRemote, null, 1000, System.Threading.Timeout.Infinite);
@@ -283,7 +215,7 @@ namespace WindowsService
                 var port = remote[1];
                 
                 _server = new TcpServer(hostname, int.Parse(port));
-                //_server.Connected += OnRemoteConnected;
+                _server.Connected += OnRemoteConnected;
             }
             else 
             {
@@ -293,6 +225,12 @@ namespace WindowsService
             _server.StartListening();
         }
 
+        private void OnRemoteConnected(object sender, TcpServerEventArgs e)
+        {
+        	_client = e.ConnectionState.Connection;
+        	log.DebugFormat("Client from {0} connected.", _client.RemoteEndPoint.ToString());
+        }
+        
         private void CloseRemote()
         {
             if (_server != null)
